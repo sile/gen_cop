@@ -1,0 +1,1 @@
+-module(gen_cop_session).

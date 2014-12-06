@@ -1,0 +1,12 @@
+%% vim: set ft=erlang : -*- erlang -*-
+{application, gen_cop,
+ [
+  {description, "General Connection-Oriented Protocol Behaviour"},
+  {vsn, git},
+  {registered, [gen_cop_sup]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
