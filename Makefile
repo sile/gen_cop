@@ -33,7 +33,7 @@ edoc:
 	@./rebar -r doc skip_deps=true
 
 start: compile
-	@ERL_LIBS=$(LIBS) erl +stbt db +K true -pz ebin -eval 'catch reloader:start().' -eval 'erlang:display(application:ensure_all_started($(APP))).'
+	@ERL_LIBS=$(LIBS) erl +stbt db +K true -pz ebin -eval 'catch reloader:start().' -eval 'erlang:display(application:ensure_all_started($(APP))).' -eval 'catch logi_tty:install(info).'
 
 .dialyzer.plt:
 	touch .dialyzer.plt

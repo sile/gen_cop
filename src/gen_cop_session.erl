@@ -1,22 +1,85 @@
+%% @copyright 2014, Takeru Ohta <phjgt308@gmail.com>
+%%
+%% @doc Protocol Session Process
+%% @private
 -module(gen_cop_session).
 
--export([start_link/4]).
--export([init/7]).
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported API
+%%----------------------------------------------------------------------------------------------------------------------
+-export([start/1]).
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Application Internal API
+%%----------------------------------------------------------------------------------------------------------------------
+-export([send/2]). % TODO: move to gen_cop_context module
+-export([get_socket/1]).
+-export([add_handler/4, remove_handler/2]).
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Internal API
+%%----------------------------------------------------------------------------------------------------------------------
+-export([init/5]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% 'sys' Callback API
 %%----------------------------------------------------------------------------------------------------------------------
 -export([system_continue/3, system_terminate/4, system_code_change/4]).
 
+%%----------------------------------------------------------------------------------------------------------------------
+%% Records & Types
+%%----------------------------------------------------------------------------------------------------------------------
 -record(state,
         {
-          connection :: gen_cop_connection:connection(),
+          socket :: inet:socket(),
           codec :: gen_cop_codec:codec(),
           done_handlers = [] :: [gen_cop_handler:handler()],
           handlers = [] :: [gen_cop_handler:handler()],
           send_queue = [] :: [term()], % TODO: type
           request_queue = [] :: [term()] % TODO: type
         }).
+
+-type sync_fun() :: fun ((Result::term()) -> any()). % TODO: doc
+
+-type start_arg() :: {inet:socket(), gen_cop:codec(), gen_cop:handler_specs(), gen_cop:start_opts()}.
+
+%%----------------------------------------------------------------------------------------------------------------------
+%% Exported Functions
+%%----------------------------------------------------------------------------------------------------------------------
+%% @see gen_cop:start/4
+-spec start(start_arg()) -> {ok, pid()} | {error, gen_cop:start_err()}.
+start(StartArg = {Socket, _, _, Options}) ->
+    Name = proplists:get_value(name, Options),
+    case Name =:= undefined orelse where(Name) of
+        Pid when is_pid(Pid) -> {error, {already_started, Pid}};
+        _                    ->
+            ok = inet:setopts(Socket, [{active, false}, binary]),
+            Ref = make_ref(),
+
+            Pid = spawn_session(Ref, StartArg),
+            _ = proplists:get_value(ack_fun, Options) =:= undefined andalso
+                begin
+                    ok = gen_tcp:controlling_process(Socket, Pid),
+                    Pid ! Ref
+                end,
+
+            case proplists:get_value(async, Options, false) of
+                true  -> {ok, Pid};
+                false -> wait_start_result(Pid, Ref, Options)
+            end
+    end.
+
+send(Data, State) ->
+    State#state{send_queue = [Data | State#state.send_queue]}.
+
+get_socket(#state{socket = Conn}) ->
+    Conn.
+
+add_handler(Pos, Mod, Arg, Context) ->
+    Context#state{request_queue = [{add_handler, Pos, Mod, Arg} | Context#state.request_queue]}.
+
+remove_handler(Reason, Context) ->
+    Context#state{request_queue = [{remove_handler, Reason} | Context#state.request_queue]}.
 
 -define(LOCATION, [{module, ?MODULE}, {line, ?LINE}, {pid, self()}]).
 
@@ -29,41 +92,67 @@
 -define(FUNCALL_ERROR(Reason, MFArgs),
         {funcall_error, Reason, [{mfargs, MFArgs}, {location, ?LOCATION}]}).
 
--spec start_link(gen_cop_connection:connection(), gen_cop_codec:codec(), [gen_cop_handler:spec()], gen_cop:options()) ->
-                        {ok, pid()} | {error, Reason} when
-      Reason :: term().
-start_link(Connection, Codec, HandlerSpecs, Options) ->
-    Ref = make_ref(),
+%%----------------------------------------------------------------------------------------------------------------------
+%% Internal Functions
+%%----------------------------------------------------------------------------------------------------------------------
+-spec spawn_session(reference(), start_arg()) -> pid().
+spawn_session(Ref, StartArg = {_, _, _, Options}) ->
+    Name = proplists:get_value(name, Options),
     Parent = self(),
-    SyncFun = fun () -> receive Ref -> ok end end,
-    AckFun = fun () -> Parent ! Ref, ok end,
-    Pid = proc_lib:spawn_link(?MODULE, init, [Parent, SyncFun, AckFun, Connection, Codec, HandlerSpecs, Options]),
+    AckFun = proplists:get_value(ack_fun, Options, fun () -> receive Ref -> ok end end),
+    SyncFun =
+        case proplists:get_value(async, Options, false) of
+            true  -> fun (_) -> ok end;
+            false -> fun (Result) -> Parent ! {Ref, Result}, receive Ref -> ok end end
+        end,
+    SpawnOptions0 = proplists:get_value(spawn_opt, Options, []),
+    SpawnOptions1 =
+        case proplists:get_value(link, Options, false) of
+            false -> SpawnOptions0;
+            true  -> [link | SpawnOptions0]
+        end,
+    proc_lib:spawn_opt(?MODULE, init, [Parent, Name, AckFun, SyncFun, StartArg], SpawnOptions1).
+
+-spec wait_start_result(pid(), reference(), gen_cop:start_opts()) -> {ok, pid()} | {error, Reason} when Reason :: timeout | term().
+wait_start_result(Pid, Ref, Options) ->
+    Timeout = proplists:get_value(timeout, Options, infinity),
     Monitor = monitor(process, Pid),
-    ok = gen_cop_connection:controlling_process(Connection, Pid),
-    _ = Pid ! Ref,
     receive
-        Ref ->
+        {Ref, Result} ->
             _ = demonitor(Monitor, [flush]),
-            {ok, Pid};
+            _ = Pid ! Ref,
+            Result;
         {'DOWN', Monitor, _, _, Reason} ->
-            {error, {'EXIT', Reason}}
+            {error, Reason}
+    after Timeout ->
+            _ = unlink(Pid),
+            _ = exit(Pid, kill),
+            _ = receive {'EXIT', Pid, _} -> ok after 0 -> ok end,
+            _ = demonitor(Monitor, [flush]),
+            {error, timeout}
     end.
 
-init(Parent, SyncFun, AckFun, Connection, Codec, HandlerSpecs, _Options) ->
-    ok = SyncFun(),
+-spec init(pid(), gen_cop:otp_name() | undefined, gen_cop:ack_fun(), sync_fun(), start_arg()) -> no_return().
+init(Parent, Name, AckFun, SyncFun, StartArg) when Name =/= undefined ->
+    case name_register(Name) of
+        {false, Pid} -> SyncFun({error, {already_started, Pid}});
+        true         -> init(Parent, undefined, AckFun, SyncFun, StartArg)
+    end;
+init(Parent, _, AckFun, SyncFun, {Socket, Codec, HandlerSpecs, Options}) ->
+    _ = AckFun(),
     State0 =
         #state{
-           connection = Connection,
-           codec = Codec
+           socket = Socket,
+           codec  = Codec
           },
-    case init_handlers(lists:reverse(HandlerSpecs), State0) of % XXX: reverse
-        {error, Reason, State1} -> terminate(Reason, State1);
+    case init_handlers(lists:reverse(HandlerSpecs), State0) of
+        {error, Reason, State1} ->
+            _ = SyncFun({error, Reason}),
+            terminate(Reason, State1);
         {ok, State1}            ->
-            ok = AckFun(),
-            case gen_cop_connection:setopts(Connection, [{active, once}]) of
-                {error, Reason} -> terminate(?FUNCALL_ERROR(Reason, {gen_cop_connection, setopts, [Connection, [{active, once}]]}), State1);
-                ok              -> loop(State1, Parent, sys:debug_options([]))
-            end
+            _  = SyncFun({ok, self()}),
+            ok = inet:setopts(Socket, [{active, once}]),
+            loop(State1, Parent, sys:debug_options(proplists:get_value(debug, Options, [])))
     end.
 
 loop(State0, Parent, Debug) ->
@@ -106,7 +195,7 @@ flush_send_queue(State0 = #state{send_queue = Queue}) ->
         {error, Reason, Codec} -> {error, Reason, State0#state{codec = Codec, send_queue = []}};
         {ok, IoData, Codec}    ->
             State1 = State0#state{codec = Codec, send_queue = []},
-            case gen_cop_connection:send(State1#state.connection, IoData) of
+            case gen_tcp:send(State1#state.socket, IoData) of
                 {error, Reason} -> {error, Reason, State1};
                 ok              -> {ok, State1}
             end
@@ -120,7 +209,7 @@ handle_recv(Bin, State0) ->
             case handle_messages(Messages, State1) of
                 {error, Reason, State2} -> {error, Reason, State2};
                 {ok, State2} ->
-                    ok = gen_cop_connection:setopts(State2#state.connection, [{active, once}]), % TODO: error handling
+                    ok = inet:setopts(State2#state.socket, [{active, once}]), % TODO: error handling
                     {ok, State2}
             end
     end.
@@ -372,6 +461,31 @@ process_request({add_handler, Pos, HMod, HArg}, State0 = #state{done_handlers = 
                 pre   -> {ok, State1#state{done_handlers = [Handler | PreHandlers], handlers = PostHandlers}};
                 post  -> {ok, State1#state{done_handlers = PreHandlers, handlers = [Handler | PostHandlers]}}
             end
+    end.
+
+
+where({global, Name}) -> global:whereis_name(Name);
+where({via, Module, Name}) -> Module:whereis_name(Name);
+where({local, Name})  -> whereis(Name).
+
+name_register({local, Name} = LN) ->
+    try register(Name, self()) of
+        true -> true
+    catch
+        error:_ ->
+            {false, where(LN)}
+    end;
+name_register({global, Name} = GN) ->
+    case global:register_name(Name, self()) of
+        yes -> true;
+        no -> {false, where(GN)}
+    end;
+name_register({via, Module, Name} = GN) ->
+    case Module:register_name(Name, self()) of
+        yes ->
+            true;
+        no ->
+            {false, where(GN)}
     end.
 
 %%----------------------------------------------------------------------------------------------------------------------

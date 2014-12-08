@@ -40,6 +40,7 @@
     {ok, state()} |
     {error, Reason::term()}.
 
+%% gen_cop:delegate().
 %% gen_cop:swap().
 %% gen_cop:remove().
 %% gen_cop:add().
