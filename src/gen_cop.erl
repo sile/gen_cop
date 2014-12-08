@@ -1,6 +1,7 @@
 -module(gen_cop).
 
 -export([start_link/4]).
+-export([reply/2]).
 
 -type options() :: []. % max queue length
 
@@ -9,3 +10,6 @@
       Reason :: term().
 start_link(Connection, Codec, HandlerSpecs, Options) ->
     gen_cop_session:start_link(Connection, Codec, HandlerSpecs, Options).
+
+reply(_, _) ->
+    ok.
