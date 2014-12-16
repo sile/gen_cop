@@ -72,17 +72,17 @@ start(Socket, Codec, HandlerSpecs) ->
 
 -spec start(inet:socket(), codec(), handler_specs(), start_opts()) -> {ok, pid()} | {error, start_err()}.
 start(Socket, Codec, HandlerSpecs, Options) ->
-    gen_cop_session:start({Socket, Codec, HandlerSpecs, Options}).
+    gen_cop_server:start({Socket, Codec, HandlerSpecs, Options}).
 
 reply(_, _) ->
     ok.
 
 send(Data, Context) ->
-    gen_cop_session:send(Data, Context).
+    gen_cop_server:send(Data, Context).
 
 % TODO: return: {ok, _} | {error, _, _}
 add_handler(Pos, Mod, State, Context) ->
-    gen_cop_session:add_handler(Pos, Mod, State, Context).
+    gen_cop_server:add_handler(Pos, Mod, State, Context).
 
 remove_handler(Reason, Context) ->
-    gen_cop_session:remove_handler(Reason, Context).
+    gen_cop_server:remove_handler(Reason, Context).
