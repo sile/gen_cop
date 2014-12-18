@@ -16,6 +16,24 @@
                  end
          end)()).
 
+-define(assertDown(Pid, ExitReason, ExpectedReason),
+        (fun () ->
+                 __Monitor = monitor(process, Pid),
+                 _ = exit(Pid, ExitReason),
+                 receive
+                     {'DOWN', __Monitor, _, _, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
+                 after 50 -> ?assert(timeout)
+                 end
+         end)()).
+
+-define(assertAbort(Pid, ExpectedReason),
+        (fun () ->
+                 receive
+                     {'EXIT', Pid, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
+                 after 50 -> ?assert(timeout)
+                 end
+         end)()).
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Unit Tests
 %%----------------------------------------------------------------------------------------------------------------------
@@ -30,8 +48,7 @@ start_test_() ->
               ?assertMatch({ok, _}, Result),
               {ok, Pid} = Result,
 
-              true = exit(Pid, kill),
-              ?assertDown(Pid, killed)
+              ?assertDown(Pid, kill, killed)
       end},
      {"プロセス起動: リンク付きの起動",
       fun () ->
@@ -44,7 +61,7 @@ start_test_() ->
 
               _ = process_flag(trap_exit, true),
               true = exit(Pid, kill),
-              ?assertDown(Pid, killed)
+              ?assertAbort(Pid, killed)
       end},
      {"プロセス起動: 名前付き",
       fun () ->
@@ -58,8 +75,7 @@ start_test_() ->
 
               ?assertEqual(Pid, whereis(Name)),
 
-              true = exit(Pid, kill),
-              ?assertDown(Pid, killed)
+              ?assertDown(Pid, kill, killed)
       end},
      {"プロセス起動: 名前の衝突",
       fun () ->
@@ -72,8 +88,7 @@ start_test_() ->
               %% 衝突
               ?assertEqual({error, {already_started, Pid}}, gen_cop:start(Socket, Codec, [], [{name, {local, Name}}])),
 
-              true = exit(Pid, kill),
-              ?assertDown(Pid, killed)
+              ?assertDown(Pid, kill, killed)
       end},
      {"プロセス起動: asyncオプションが有効 (初期化完了まで待たない)",
       fun () ->
@@ -82,7 +97,7 @@ start_test_() ->
 
               %% `{async, false}'の場合(デフォルト)は、start関数呼び出しに失敗する
               {ok, Socket0} = gen_tcp:listen(0, []),
-              ?assertMatch({error, {'EXIT', [{exception, error, undef} | _]}},
+              ?assertMatch({error, {'EXIT', {error, undef,  _}}},
                            gen_cop:start(Socket0, Codec, UndefinedHandlerSpecs)),
 
               %% `{async, true}'の場合は、起動は初期化処理を待たずに成功する
@@ -91,7 +106,7 @@ start_test_() ->
               ?assertMatch({ok, _}, Result),
               {ok, Pid} = Result,
 
-              ?assertDown(Pid, {'EXIT', [{exception, error, undef} | _]})
+              ?assertDown(Pid, {'EXIT', {error, undef, _}})
       end}
     ].
 
