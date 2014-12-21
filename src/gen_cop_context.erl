@@ -18,6 +18,11 @@
 -export([handle_info/2]).
 -export([terminate/2]).
 -export([flush_send_queue/1]).
+
+-export([delegate_data/3]).
+-export([delegate_call/4]).
+-export([delegate_cast/3]).
+-export([delegate_info/3]).
 %% TODO: add_handler, remove_handler, swap_handler
 
 -export_type([context/0]).
@@ -60,6 +65,38 @@ recv(Bin, Context) ->
     case gen_cop_codec:decode(Bin, Context#?CONTEXT.codec) of
         {error, Reason, Codec} -> {error, Reason, Context#?CONTEXT{codec = Codec}};
         {ok, Messages, Codec}  -> handle_messages(Messages, Context#?CONTEXT{codec = Codec})
+    end.
+
+-spec delegate_data(gen_cop:data(), gen_cop_handler:state(), context()) ->
+                           gen_cop_handler:handle_result(gen_cop_handler:handler()).
+delegate_data(Data, State, Context0) ->
+    case handlers_handle_message(Data, Context0) of
+        {error, Reason, Context1} -> {stop, Reason, State, Context1};
+        {ok, Context1}            -> {ok, State, Context1}
+    end.
+
+-spec delegate_call(term(), gen_cop:from(), gen_cop_handler:state(), context()) ->
+                           gen_cop_handler:handle_result(gen_cop_handler:handler()).
+delegate_call(Request, From, State, Context0) ->
+    case handle_call(Request, From, Context0) of
+        {error, Reason, Context1} -> {stop, Reason, State, Context1};
+        {ok, Context1}            -> {ok, State, Context1}
+    end.
+
+-spec delegate_cast(term(), gen_cop_handler:state(), context()) ->
+                           gen_cop_handler:handle_result(gen_cop_handler:handler()).
+delegate_cast(Request, State, Context0) ->
+    case handle_cast(Request, Context0) of
+        {error, Reason, Context1} -> {stop, Reason, State, Context1};
+        {ok, Context1}            -> {ok, State, Context1}
+    end.
+
+-spec delegate_info(term(), gen_cop_handler:state(), context()) ->
+                           gen_cop_handler:handle_result(gen_cop_handler:handler()).
+delegate_info(Info, State, Context0) ->
+    case handle_info(Info, Context0) of
+        {error, Reason, Context1} -> {stop, Reason, State, Context1};
+        {ok, Context1}            -> {ok, State, Context1}
     end.
 
 -spec handle_call(term(), gen_cop:from(), context()) -> {ok, context()} | {error, Reason::term(), context()}.
