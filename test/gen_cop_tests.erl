@@ -12,7 +12,7 @@
                  __Monitor = monitor(process, Pid),
                  receive
                      {'DOWN', __Monitor, _, _, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
-                 after 50 -> ?assert(timeout)
+                 after 500 -> ?assert(timeout)
                  end
          end)()).
 
@@ -22,7 +22,7 @@
                  _ = exit(Pid, ExitReason),
                  receive
                      {'DOWN', __Monitor, _, _, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
-                 after 50 -> ?assert(timeout)
+                 after 500 -> ?assert(timeout)
                  end
          end)()).
 
@@ -30,7 +30,7 @@
         (fun () ->
                  receive
                      {'EXIT', Pid, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
-                 after 50 -> ?assert(timeout)
+                 after 500 -> ?assert(timeout)
                  end
          end)()).
 

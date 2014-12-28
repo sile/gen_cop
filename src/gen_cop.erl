@@ -72,7 +72,8 @@ start(Socket, Codec, HandlerSpecs) ->
 
 -spec start(inet:socket(), codec(), handler_specs(), start_opts()) -> {ok, pid()} | {error, start_err()}.
 start(Socket, Codec, HandlerSpecs, Options) ->
-    gen_cop_server:start({Socket, Codec, HandlerSpecs, Options}).
+    Handlers = lists:map(fun gen_cop_handler:make_instance/1, HandlerSpecs),
+    gen_cop_server:start({Socket, Codec, Handlers, Options}).
 
 reply(_, _) ->
     ok.

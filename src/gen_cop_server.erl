@@ -30,7 +30,7 @@
 
 -type sync_fun() :: fun ((Result::term()) -> any()). % TODO: doc
 
--type start_arg() :: {inet:socket(), gen_cop:codec(), gen_cop:handler_specs(), gen_cop:start_opts()}.
+-type start_arg() :: {inet:socket(), gen_cop:codec(), [gen_cop_handler:uninitialized_handler()], gen_cop:start_opts()}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
@@ -72,7 +72,7 @@ start(StartArg = {Socket, _, _, Options}) ->
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
--spec spawn_session(reference(), start_arg()) -> pid().
+-spec spawn_session(reference(), start_arg()) -> pid(). % XXX: name
 spawn_session(Ref, StartArg = {_, _, _, Options}) ->
     Name = proplists:get_value(name, Options),
     Parent = self(),
@@ -115,10 +115,10 @@ init(Parent, Name, AckFun, SyncFun, StartArg) when Name =/= undefined ->
         {false, Pid} -> SyncFun({error, {already_started, Pid}});
         true         -> init(Parent, undefined, AckFun, SyncFun, StartArg)
     end;
-init(Parent, _, AckFun, SyncFun, {Socket, Codec, HandlerSpecs, Options}) ->
+init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
     _ = AckFun(),
-    case gen_cop_context:init(Socket, Codec, HandlerSpecs) of
-        {error, Reason} ->
+    case gen_cop_context:init(Socket, Codec, Handlers) of
+        {stop, Reason} ->
             _ = SyncFun({error, Reason}),
             exit(Reason);
         {ok, Context} ->
@@ -174,29 +174,29 @@ flush_send_queue(State0) ->
 
 handle_recv(Bin, State0) ->
     case gen_cop_context:recv(Bin, State0#state.context) of
-        {error, Reason, Context} -> {error, Reason, State0#state{context = Context}};
-        {ok, Context}            ->
+        {stop, Reason, Context} -> {error, Reason, State0#state{context = Context}};
+        {ok, Context}           ->
             ok = inet:setopts(gen_cop_context:get_socket(Context), [{active, once}]), % TODO: error handling
             {ok, State0#state{context = Context}}
     end.
 
 handle_call(Request, From, State) ->
     case gen_cop_context:handle_call(Request, From, State#state.context) of
-        {error, Reason, Context} -> {error, Reason, State#state{context = Context}};
-        {ok, Context}            -> {ok, State#state{context = Context}}
+        {stop, Reason, Context} -> {error, Reason, State#state{context = Context}};
+        {ok, Context}           -> {ok, State#state{context = Context}}
     end.
 
 handle_cast(Request, State) ->
     case gen_cop_context:handle_cast(Request, State#state.context) of
-        {error, Reason, Context} -> {error, Reason, State#state{context = Context}};
-        {ok, Context}            -> {ok, State#state{context = Context}}
+        {stop, Reason, Context} -> {error, Reason, State#state{context = Context}};
+        {ok, Context}           -> {ok, State#state{context = Context}}
     end.
 
 %% TODO: Request => Info
 handle_info(Info, State) ->
     case gen_cop_context:handle_cast(Info, State#state.context) of
-        {error, Reason, Context} -> {error, Reason, State#state{context = Context}};
-        {ok, Context}            -> {ok, State#state{context = Context}}
+        {stop, Reason, Context} -> {error, Reason, State#state{context = Context}};
+        {ok, Context}           -> {ok, State#state{context = Context}}
     end.
 
 terminate(Reason, State0) ->
