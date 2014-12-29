@@ -9,6 +9,7 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -export([init/3]).
 -export([get_socket/1]).
+-export([get_codec/1, set_codec/2]).
 -export([send/2, multisend/2]).
 -export([recv/2]).
 -export([handle_call/3]).
@@ -87,10 +88,10 @@ multisend(DataList, Context) ->
     lists:foldl(fun send/2, Context, DataList).
 
 -spec recv(binary(), context()) -> handler_result(). % XXX: name
-recv(Bin, Context) ->
-    case gen_cop_codec:decode(Bin, Context#?CONTEXT.codec) of
-        {error, Reason, Codec} -> {stop, Reason, Context#?CONTEXT{codec = Codec}};
-        {ok, Messages, Codec}  -> handle_messages(Messages, Context#?CONTEXT{codec = Codec})
+recv(Bin, Context0) ->
+    case gen_cop_codec:decode(Bin, Context0#?CONTEXT.codec, Context0) of
+        {error, Reason, Codec, Context1} -> {stop, Reason, Context1#?CONTEXT{codec = Codec}};
+        {ok, Messages, Codec, Context1}  -> handle_messages(Messages, Context1#?CONTEXT{codec = Codec})
     end.
 
 -spec delegate_data(gen_cop:data(), context()) -> handler_result().
@@ -173,12 +174,19 @@ handle_info(Info, Context = #?CONTEXT{handlers = [Handler | _]}) ->
 
 -spec flush_send_queue(context()) -> {ok, iodata(), context()} | {error, Reason::term(), context()}. % XXX: name
 flush_send_queue(Context0 = #?CONTEXT{send_queue = Queue}) ->
-    Result = gen_cop_codec:encode(lists:reverse(Queue), Context0#?CONTEXT.codec),
-    Context1 = Context0#?CONTEXT{codec = element(3, Result), send_queue = []},
-    setelement(3, Result, Context1).
+    {Status, Value, Codec, Context1} = gen_cop_codec:encode(lists:reverse(Queue), Context0#?CONTEXT.codec, Context0),
+    Context2 = Context1#?CONTEXT{codec = Codec, send_queue = []},
+    {Status, Value, Context2}.
 
 -spec get_socket(context()) -> inet:socket().
 get_socket(#?CONTEXT{socket = Socket}) -> Socket.
+
+-spec get_codec(context()) -> gen_cop_codec:codec_state().
+get_codec(#?CONTEXT{codec = Codec}) -> gen_cop_codec:get_state(Codec).
+
+-spec set_codec(gen_cop_codec:codec_state(), context()) -> context().
+set_codec(Codec, Context) ->
+    Context#?CONTEXT{codec = gen_cop_codec:set_state(Codec, Context#?CONTEXT.codec)}.
 
 -spec terminate(term(), context()) -> context().
 terminate(Reason, Context) ->

@@ -116,5 +116,5 @@ start_test_() ->
 -spec make_dummy_codec() -> gen_cop_codec:codec().
 make_dummy_codec() ->
     gen_cop_codec:make([],
-                       fun (_, Enc) -> {ok, [], Enc} end,
-                       fun (_, Dec) -> {ok, [], Dec} end).
+                       fun (_, Enc, C) -> {ok, [], Enc, C} end,
+                       fun (_, Dec, C) -> {ok, [], Dec, C} end).
