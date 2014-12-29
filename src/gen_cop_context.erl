@@ -9,7 +9,7 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -export([init/3]).
 -export([get_socket/1]).
--export([send/2]).
+-export([send/2, multisend/2]).
 -export([recv/2]).
 -export([handle_call/3]).
 -export([handle_cast/2]).
@@ -23,8 +23,8 @@
 
 -export([delegate_data/2, delegate_data/3, delegate_data/4]).
 -export([delegate_call/3, delegate_call/4, delegate_call/5]).
--export([delegate_cast/3, delegate_cast/4]).
--export([delegate_info/3, delegate_info/4]).
+-export([delegate_cast/2, delegate_cast/3, delegate_cast/4]).
+-export([delegate_info/2, delegate_info/3, delegate_info/4]).
 
 -export([add_handler/3]).
 -export([remove_handler/3]).
@@ -42,6 +42,8 @@
 
 -record(?CONTEXT,
         {
+          %% TODO: user_state (connection global state)
+
           socket :: inet:socket(),
           codec :: gen_cop_codec:codec(),
           handlers = [] :: [gen_cop_handler:handler()], % XXX: non-empty check
@@ -80,6 +82,10 @@ init(Socket, Codec, Handlers) ->
 send(Data, Context) ->
     Context#?CONTEXT{send_queue = [Data | Context#?CONTEXT.send_queue]}.
 
+-spec multisend([gen_cop:data()], context()) -> context().
+multisend(DataList, Context) ->
+    lists:foldl(fun send/2, Context, DataList).
+
 -spec recv(binary(), context()) -> handler_result(). % XXX: name
 recv(Bin, Context) ->
     case gen_cop_codec:decode(Bin, Context#?CONTEXT.codec) of
@@ -97,9 +103,9 @@ delegate_data(Data, State, Context) ->
 
 -spec delegate_data(gen_cop:data(), gen_cop_handler:state(), context(), post_opts()) -> handler_result().
 delegate_data(Data, State, Context0, Options) ->
-    case handle_post_options(update_state(State, Context0), Options) of
+    case handle_post_options(next_handler(State, Context0), Options) of
         {stop, Reason, Context1} -> stop(Reason, Context1);
-        {ok, Context1}           -> delegate_data(Data, Context1)
+        {ok, Context1}           -> handle_data(Data, Context1)
     end.
 
 -spec delegate_call(term(), gen_cop:from(), context()) -> handler_result().
@@ -112,9 +118,9 @@ delegate_call(Request, From, State, Context) ->
 
 -spec delegate_call(term(), gen_cop:from(), gen_cop_handler:state(), context(), post_opts()) -> handler_result().
 delegate_call(Request, From, State, Context0, Options) ->
-    case handle_post_options(update_state(State, Context0), Options) of
+    case handle_post_options(next_handler(State, Context0), Options) of
         {stop, Reason, Context1} -> stop(Reason, Context1);
-        {ok, Context1}           -> delegate_call(Request, From, Context1)
+        {ok, Context1}           -> handle_call(Request, From, Context1)
     end.
 
 -spec delegate_cast(term(), context()) -> handler_result().
@@ -127,9 +133,9 @@ delegate_cast(Request, State, Context) ->
 
 -spec delegate_cast(term(), gen_cop_handler:state(), context(), post_opts()) -> handler_result().
 delegate_cast(Request, State, Context0, Options) ->
-    case handle_post_options(update_state(State, Context0), Options) of
+    case handle_post_options(next_handler(State, Context0), Options) of
         {stop, Reason, Context1} -> stop(Reason, Context1);
-        {ok, Context1}           -> delegate_cast(Request, Context1)
+        {ok, Context1}           -> handle_cast(Request, Context1)
     end.
 
 -spec delegate_info(term(), context()) -> handler_result().
@@ -142,9 +148,9 @@ delegate_info(Info, State, Context) ->
 
 -spec delegate_info(term(), gen_cop_handler:state(), context(), post_opts()) -> handler_result().
 delegate_info(Info, State, Context0, Options) ->
-    case handle_post_options(update_state(State, Context0), Options) of
+    case handle_post_options(next_handler(State, Context0), Options) of
         {stop, Reason, Context1} -> stop(Reason, Context1);
-        {ok, Context1}           -> delegate_info(Info, Context1)
+        {ok, Context1}           -> handle_info(Info, Context1)
     end.
 
 -spec handle_call(term(), gen_cop:from(), context()) -> handler_result().
@@ -172,8 +178,7 @@ flush_send_queue(Context0 = #?CONTEXT{send_queue = Queue}) ->
     setelement(3, Result, Context1).
 
 -spec get_socket(context()) -> inet:socket().
-get_socket(Context) ->
-    gen_cop_session:get_socket(Context).
+get_socket(#?CONTEXT{socket = Socket}) -> Socket.
 
 -spec terminate(term(), context()) -> context().
 terminate(Reason, Context) ->
@@ -205,7 +210,7 @@ stop(Reason, State, Context) ->
 
 -spec ok(gen_cop_handler:state(), context(), post_opts()) -> handler_result().
 ok(State, Context0, Options) ->
-    case handle_post_options(update_state(State, Context0), Options) of
+    case handle_post_options(next_handler(State, Context0), Options) of % TODO: NOTE: next_handler
         {stop, Reason, Context1} -> stop(Reason, Context1);
         {ok, Context1}           -> ok(Context1)
     end.
@@ -222,15 +227,18 @@ ok(Context) ->
 handle_post_options(Context, []) ->
     {ok, Context};
 handle_post_options(Context0, [{remove, RemoveReason} | Options]) ->
-    case remove_handler(gen_cop_handler:get_id(hd(Context0#?CONTEXT.handlers)), RemoveReason, Context0) of
+    case remove_handler(gen_cop_handler:get_id(hd(Context0#?CONTEXT.done_handlers)), RemoveReason, Context0) of
         {error, Reason, Context1} -> {stop, Reason, Context1};
         {ok, Context1}            -> handle_post_options(Context1, Options)
     end;
 handle_post_options(Context0, [{swap, SwapReason, Spec} | Options]) ->
-    case swap_handler(gen_cop_handler:get_id(hd(Context0#?CONTEXT.handlers)), SwapReason, Spec, Context0) of
+    %% XXX: remove => swap, で不正な結果になる
+    case swap_handler(gen_cop_handler:get_id(hd(Context0#?CONTEXT.done_handlers)), SwapReason, Spec, Context0) of
         {error, Reason, Context1} -> {stop, Reason, Context1};
         {ok, Context1}            -> handle_post_options(Context1, Options)
-    end.
+    end;
+handle_post_options(Context0, Options) ->
+    error(badarg, [Context0, Options]). % TODO: 引数の位置は逆の方が良さそう
 
 -spec add_handler(position(), gen_cop_handler:spec(), context()) -> {ok, context()} | {error, Reason, context()} when
       Reason :: not_found | {already_present, gen_cop_handler:id()} | term().
@@ -239,16 +247,16 @@ add_handler(Position, Spec, Context0) ->
     case handlers_split(gen_cop_handler:get_id(Handler0), Context0#?CONTEXT.handlers ++ Context0#?CONTEXT.done_handlers, []) of  % TODO: refactoring
         {ok, _, _, _} -> {error, {already_present, gen_cop_handler:get_id(Handler0)}, Context0};
         error         ->
-            case gen_cop_handler:init(Handler0, Context0) of
+            case gen_cop_handler:init(Handler0, Context0#?CONTEXT{handlers = [Handler0 | Context0#?CONTEXT.handlers]}) of % XXX:
                 {stop, Reason, Context1} -> {error, Reason, Context1};
                 {ok, Context1}           ->
                     #?CONTEXT{handlers = [Handler1, Current | Handlers], done_handlers = Dones} = Context1,
                     Context2 = Context1#?CONTEXT{handlers = [Current | Handlers]},
                     case Position of
-                        front     -> Context2#?CONTEXT{done_handlers = Dones ++ [Handler1]};
-                        back      -> Context2#?CONTEXT{handlers = [Current | Handlers] ++ [Handler1]};
-                        pre       -> Context2#?CONTEXT{done_handlers = [Handler1 | Dones]};
-                        post      -> Context2#?CONTEXT{handlers = [Current, Handler1 | Handlers]};
+                        front     -> {ok, Context2#?CONTEXT{done_handlers = Dones ++ [Handler1]}};
+                        back      -> {ok, Context2#?CONTEXT{handlers = [Current | Handlers] ++ [Handler1]}};
+                        pre       -> {ok, Context2#?CONTEXT{done_handlers = [Handler1 | Dones]}};
+                        post      -> {ok, Context2#?CONTEXT{handlers = [Current, Handler1 | Handlers]}};
                         {Pos, Id} ->
                             FullHandlers = lists:reverse(Dones, [Current | Handlers]),
                             case handlers_split(Id, FullHandlers, []) of
@@ -266,9 +274,21 @@ add_handler(Position, Spec, Context0) ->
             end
     end.
 
+%% TODO: empty check(?)
 -spec remove_handler(gen_cop_handler:id(), RemoveReason, context()) -> {ok, context()} | {error, ErrorReason, context()} when
       RemoveReason :: term(),
       ErrorReason  :: not_found | in_active | term().
+remove_handler(Id, RemoveReason, Context0 = #?CONTEXT{handlers = []}) ->
+    %% TODO: refactoring
+    #?CONTEXT{done_handlers = Dones} = Context0,
+    case handlers_split(Id, lists:reverse(Dones), []) of
+        error                  -> {error, not_found, Context0};
+        {ok, Pres, Mid, Posts} ->
+            case gen_cop_handler:terminate(RemoveReason, Mid, Context0#?CONTEXT{handlers = [Mid]}) of % XXX: handlers = [...]
+                {stop, Reason, Context1} -> {error, Reason, Context1};
+                {ok, Context1}           -> {ok, Context1#?CONTEXT{handlers = [], done_handlers = lists:reverse(Pres ++ Posts)}}
+            end
+    end;
 remove_handler(Id, RemoveReason, Context0) ->
     #?CONTEXT{handlers = [Current | Handlers], done_handlers = Dones} = Context0,
     case Id =:= gen_cop_handler:get_id(Current) of
@@ -277,7 +297,7 @@ remove_handler(Id, RemoveReason, Context0) ->
             case handlers_split(Id, lists:reverse(Dones, [Current | Handlers]), []) of
                 error                  -> {error, not_found, Context0};
                 {ok, Pres, Mid, Posts} ->
-                    case gen_cop_handler:terminate(RemoveReason, Mid, Context0) of
+                    case gen_cop_handler:terminate(RemoveReason, Mid, Context0#?CONTEXT{handlers = [Mid]}) of % XXX: handlers = [...]
                         {stop, Reason, Context1} -> {error, Reason, Context1};
                         {ok, Context1}           ->
                             %% TODO:
@@ -287,6 +307,7 @@ remove_handler(Id, RemoveReason, Context0) ->
             end
     end.
 
+%% TODO: delegateと組み合わせた時に現在位置がずれることがないかは要確認
 -spec swap_handler(gen_cop_handler:id(), SwapReason, gen_cop_handler:spec(), context()) -> {ok, context()} | {error, ErrorReason, context()} when
       SwapReason  :: term(),
       ErrorReason :: not_found | in_active | {already_present, gen_cop_handler:id()} | term().

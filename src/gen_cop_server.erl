@@ -125,7 +125,8 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
             _  = SyncFun({ok, self()}),
             ok = inet:setopts(Socket, [{active, once}]),
             State = #state{context = Context},
-            loop(State, Parent, sys:debug_options(proplists:get_value(debug, Options, [])))
+            loop(element(2, flush_send_queue(State)),  % XXX
+                 Parent, sys:debug_options(proplists:get_value(debug, Options, [])))
     end.
 
 loop(State0, Parent, Debug) ->
@@ -194,7 +195,7 @@ handle_cast(Request, State) ->
 
 %% TODO: Request => Info
 handle_info(Info, State) ->
-    case gen_cop_context:handle_cast(Info, State#state.context) of
+    case gen_cop_context:handle_info(Info, State#state.context) of
         {stop, Reason, Context} -> {error, Reason, State#state{context = Context}};
         {ok, Context}           -> {ok, State#state{context = Context}}
     end.
