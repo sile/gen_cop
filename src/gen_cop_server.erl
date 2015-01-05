@@ -9,6 +9,7 @@
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
 -export([start/1]).
+-export([send/2]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal API
@@ -57,6 +58,10 @@ start(StartArg = {Socket, _, _, Options}) ->
                 false -> wait_start_result(Pid, Ref, Options)
             end
     end.
+
+-spec send(gen_cop:otp_ref(), gen_cop:data()) -> ok.
+send(ServerRef, Data) ->
+    gen_server:cast(ServerRef, {'$send', Data}). % XXX:
 
 -define(LOCATION, [{module, ?MODULE}, {line, ?LINE}, {pid, self()}]).
 
@@ -137,7 +142,10 @@ loop(State0, Parent, Debug) ->
                 flush_send_queue_if_need(handle_recv(Bin, State0));
             {call, Request, From} -> % XXX:
                 flush_send_queue_if_need(handle_call(Request, From, State0));
-            {cast, Request} -> % XXX:
+            {'$gen_cast', {'$send', Data}} ->
+                Context = gen_cop_context:send(Data, State0#state.context),
+                flush_send_queue(State0#state{context = Context});
+            {'$gen_cast', Request} ->
                 flush_send_queue_if_need(handle_cast(Request, State0));
 
             {tcp_closed, _}           -> {error, {shutdown, tcp_closed}, State0};
