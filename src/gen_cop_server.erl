@@ -10,6 +10,7 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -export([start/1]).
 -export([send/2]).
+-export([cast/2]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal API
@@ -61,7 +62,11 @@ start(StartArg = {Socket, _, _, Options}) ->
 
 -spec send(gen_cop:otp_ref(), gen_cop:data()) -> ok.
 send(ServerRef, Data) ->
-    gen_server:cast(ServerRef, {'$send', Data}). % XXX:
+    cast(ServerRef, {'$send', Data}). % XXX:
+
+-spec cast(gen_cop:otp_ref(), term()) -> ok.
+cast(ServerRef, Request) ->
+    gen_server:cast(ServerRef, Request).
 
 -define(LOCATION, [{module, ?MODULE}, {line, ?LINE}, {pid, self()}]).
 

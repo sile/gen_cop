@@ -17,6 +17,7 @@
 
 -export([reply/2]).
 -export([send/2]).
+-export([cast/2]).
 
 -export([add_handler/4, remove_handler/2]).
 
@@ -80,6 +81,10 @@ reply(_, _) ->
 
 send(Data, Context) ->
     gen_cop_server:send(Data, Context).
+
+-spec cast(otp_ref(), term()) -> ok.
+cast(ServerRef, Request) ->
+    gen_cop_server:cast(ServerRef, Request).
 
 % TODO: return: {ok, _} | {error, _, _}
 add_handler(Pos, Mod, State, Context) ->
