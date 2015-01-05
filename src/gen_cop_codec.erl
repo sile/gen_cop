@@ -15,7 +15,8 @@
 -export_type([codec/0]).
 -export_type([codec_module/0, codec_state/0]).
 -export_type([encode_fun/0, decode_fun/0]).
--export_type([encode_result/0, decode_result/0]).
+-export_type([encode_result/0, encode_result/1]).
+-export_type([decode_result/0, decode_result/2]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Macros & Records & Types
@@ -39,8 +40,11 @@
 -type encode_fun() :: fun (([gen_cop:message()], codec_state(), context()) -> encode_result()).
 -type decode_fun() :: fun ((binary(), codec_state(), context()) -> decode_result()).
 
--type encode_result() :: {ok, iodata(), codec_state(), context()} | {error, Reason::term(), codec_state(), context()}.
--type decode_result() :: {ok, [gen_cop:message()], codec_state(), context()} | {error, Reason::term(), codec_state(), context()}.
+-type encode_result() :: encode_result(codec_state()).
+-type encode_result(State) :: {ok, iodata(), State, context()} | {error, Reason::term(), State, context()}.
+
+-type decode_result() :: decode_result(gen_cop:message(), codec_state()).
+-type decode_result(Message, State) :: {ok, [Message], State, context()} | {error, Reason::term(), State, context()}.
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Callback API
