@@ -31,6 +31,8 @@
 -export([remove_handler/3]).
 -export([swap_handler/4]).
 
+-export([which_handlers/1]).
+
 -export_type([context/0]).
 -export_type([handler_result/0, handler_result/1]).
 -export_type([position/0]).
@@ -325,6 +327,10 @@ swap_handler(RemoveId, SwapReason, Spec, Context0) ->
         {error, Reason, Context1} -> {error, Reason, Context1};
         {ok, Context1}            -> add_handler(Position, Spec, Context1)
     end.
+
+-spec which_handlers(context()) -> [gen_cop_handler:id()].
+which_handlers(Context) ->
+    lists:map(fun gen_cop_handler:get_id/1, Context#?CONTEXT.handlers).
 
 -spec get_nearest_position(gen_cop_handler:id(), context()) -> position().
 get_nearest_position(Id, Context) -> % TODO: rename

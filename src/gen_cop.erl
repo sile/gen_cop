@@ -22,6 +22,8 @@
 
 -export([get_logger/1]).
 
+-export([which_handlers/1]).
+
 -export([add_handler/4, remove_handler/2]).
 
 -export([default_on_owner_down/2]).
@@ -114,6 +116,10 @@ reply(From, Reply) ->
 -spec get_logger(otp_ref()) -> logi:context().
 get_logger(ServerRef) ->
     call(ServerRef, get_logger).
+
+-spec which_handlers(otp_ref()) -> [gen_cop_handler:id()].
+which_handlers(ServerRef) ->
+    gen_cop_server:which_handlers(ServerRef).
 
 % TODO: return: {ok, _} | {error, _, _}
 add_handler(Pos, Mod, State, Context) ->

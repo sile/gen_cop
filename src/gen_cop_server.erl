@@ -12,6 +12,7 @@
 -export([send/2]).
 -export([cast/2]).
 -export([call/3]).
+-export([which_handlers/1]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal API
@@ -76,9 +77,13 @@ send(ServerRef, Data) ->
 cast(ServerRef, Request) ->
     gen_server:cast(ServerRef, Request).
 
--spec call(gen_server:otp_ref(), term(), timeout()) -> term().
+-spec call(gen_cop:otp_ref(), term(), timeout()) -> term().
 call(ServerRef, Request, Timeout) ->
     gen_server:call(ServerRef, Request, Timeout).
+
+-spec which_handlers(gen_cop:otp_ref()) -> [gen_cop_handler:id()].
+which_handlers(ServerRef) ->
+    call(ServerRef, which_handlers, 5000).
 
 -define(LOCATION, [{module, ?MODULE}, {line, ?LINE}, {pid, self()}]).
 
@@ -176,6 +181,9 @@ loop(State0, Parent, Debug) ->
                 flush_send_queue_if_need(handle_cast(Request, State0));
             {'$gen_call', From, get_logger} -> % XXX:
                 ok = gen_cop:reply(From, logi:load_context()),
+                {ok, State0};
+            {'$gen_call', From, which_handlers} -> % XXX:
+                ok = gen_cop:reply(From, gen_cop_context:which_handlers(State0#state.context)),
                 {ok, State0};
             {'$gen_call', From, Request} ->
                 flush_send_queue_if_need(handle_call(Request, From, State0));
