@@ -20,6 +20,8 @@
 -export([cast/2]).
 -export([call/2, call/3]).
 
+-export([get_logger/1]).
+
 -export([add_handler/4, remove_handler/2]).
 
 -export([default_on_owner_down/2]).
@@ -42,7 +44,8 @@
                    | {on_owner_down, on_owner_down()}
                    | {spawn_opt, [term()]} % TODO: more specific typespec
                    | {timeout, timeout()}
-                   | {debug, [term()]}. % TODO: more specific typespec
+                   | {debug, [term()]} % TODO: more specific typespec
+                   | {logger, logi:context()}.
 %% TODO: doc
 
 -type start_err() :: {already_started, pid()} | timeout | term().
@@ -106,6 +109,11 @@ call(ServerRef, Request, Timeout) ->
 reply(From, Reply) ->
     _ = gen_server:reply(From, Reply),
     ok.
+
+%% TODO: rename: get_default_logger
+-spec get_logger(otp_ref()) -> logi:context().
+get_logger(ServerRef) ->
+    call(ServerRef, get_logger).
 
 % TODO: return: {ok, _} | {error, _, _}
 add_handler(Pos, Mod, State, Context) ->

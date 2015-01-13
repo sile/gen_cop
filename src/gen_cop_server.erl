@@ -146,6 +146,8 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
         {ok, Context} ->
             _  = SyncFun({ok, self()}),
             ok = inet:setopts(Socket, [{active, once}]),
+            ok = logi:save_context(proplists:get_value(logger, Options, logi:make_context())), % TODO: 不要な時には保存しない
+
             State =
                 #state{
                    context = Context,
@@ -172,6 +174,9 @@ loop(State0, Parent, Debug) ->
                 flush_send_queue(State0#state{context = Context});
             {'$gen_cast', Request} ->
                 flush_send_queue_if_need(handle_cast(Request, State0));
+            {'$gen_call', From, get_logger} -> % XXX:
+                ok = gen_cop:reply(From, logi:load_context()),
+                {ok, State0};
             {'$gen_call', From, Request} ->
                 flush_send_queue_if_need(handle_call(Request, From, State0));
 
