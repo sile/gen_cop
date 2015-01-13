@@ -21,6 +21,10 @@
 
 -export([add_handler/4, remove_handler/2]).
 
+-export([default_on_owner_down/2]).
+
+-export_type([on_owner_down/0]).
+
 %%----------------------------------------------------------------------------------------------------------------------
 %% Types
 %%----------------------------------------------------------------------------------------------------------------------
@@ -33,6 +37,8 @@
                    | {name, otp_name()}
                    | {ack_fun, ack_fun()}
                    | {async, boolean()}
+                   | {owner, pid()}
+                   | {on_owner_down, on_owner_down()}
                    | {spawn_opt, [term()]} % TODO: more specific typespec
                    | {timeout, timeout()}
                    | {debug, [term()]}. % TODO: more specific typespec
@@ -51,6 +57,8 @@
                  | {global, Name :: term()}
                  | {via, module(), Name :: term()}
                  | pid().
+
+-type on_owner_down() :: fun ((OwerPid::pid(), OwnerExitReason::term()) -> ExitReason::term()).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
@@ -78,6 +86,9 @@ start(Socket, Codec, HandlerSpecs, Options) ->
 
 reply(_, _) ->
     ok.
+
+default_on_owner_down(Pid, Reason) ->
+    {owner_down, Pid, Reason}.
 
 send(Data, Context) ->
     gen_cop_server:send(Data, Context).

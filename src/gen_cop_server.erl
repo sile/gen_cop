@@ -25,9 +25,16 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
+-record(opt,
+        {
+          owner         :: undefined | reference(),
+          on_owner_down :: gen_cop:on_owner_down()
+        }).
+
 -record(state,
         {
-          context :: gen_cop_context:context()
+          context :: gen_cop_context:context(),
+          opts :: #opt{}
         }).
 
 -type sync_fun() :: fun ((Result::term()) -> any()). % TODO: doc
@@ -134,7 +141,17 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
         {ok, Context} ->
             _  = SyncFun({ok, self()}),
             ok = inet:setopts(Socket, [{active, once}]),
-            State = #state{context = Context},
+            State =
+                #state{
+                   context = Context,
+                   opts = #opt{
+                             owner = case proplists:get_value(owner, Options) of % XXX:
+                                         undefined -> undefined;
+                                         OwnerPid  -> monitor(process, OwnerPid)
+                                     end,
+                             on_owner_down = proplists:get_value(on_owner_down, Options, fun gen_cop:default_on_owner_down/2)
+                            }
+                  },
             loop(element(2, flush_send_queue(State)),  % XXX
                  Parent, sys:debug_options(proplists:get_value(debug, Options, [])))
     end.
@@ -160,6 +177,8 @@ loop(State0, Parent, Debug) ->
             {system, _, _} = SystemMessage -> SystemMessage;
             %% TODO: {From, Tag, get_modules} -> _ = ?SYSTEM_REPLY(From, Tag, get_modules(State)), State;
 
+            {'DOWN', Monitor, _, OwnerPid, ExitReason} when Monitor =:= State0#state.opts#opt.owner ->
+                terminate((State0#state.opts#opt.on_owner_down)(OwnerPid, ExitReason), State0);
             Msg ->
                 flush_send_queue_if_need(handle_info(Msg, State0))
         end,
