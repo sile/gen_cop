@@ -18,6 +18,7 @@
 -export([reply/2]).
 -export([send/2]).
 -export([cast/2]).
+-export([call/2, call/3]).
 
 -export([add_handler/4, remove_handler/2]).
 
@@ -81,11 +82,8 @@ start(Socket, Codec, HandlerSpecs) ->
 
 -spec start(inet:socket(), codec(), handler_specs(), start_opts()) -> {ok, pid()} | {error, start_err()}.
 start(Socket, Codec, HandlerSpecs, Options) ->
-    Handlers = lists:map(fun gen_cop_handler:make_instance/1, HandlerSpecs),
+    Handlers = lists:map(fun gen_cop_handler:make_instance_if_need/1, HandlerSpecs),
     gen_cop_server:start({Socket, Codec, Handlers, Options}).
-
-reply(_, _) ->
-    ok.
 
 default_on_owner_down(Pid, Reason) ->
     {owner_down, Pid, Reason}.
@@ -96,6 +94,18 @@ send(Data, Context) ->
 -spec cast(otp_ref(), term()) -> ok.
 cast(ServerRef, Request) ->
     gen_cop_server:cast(ServerRef, Request).
+
+-spec call(otp_ref(), term()) -> term().
+call(ServerRef, Request) ->
+    call(ServerRef, Request, 5000).
+
+-spec call(otp_ref(), term(), timeout()) -> term().
+call(ServerRef, Request, Timeout) ->
+    gen_cop_server:call(ServerRef, Request, Timeout).
+
+reply(From, Reply) ->
+    _ = gen_server:reply(From, Reply),
+    ok.
 
 % TODO: return: {ok, _} | {error, _, _}
 add_handler(Pos, Mod, State, Context) ->

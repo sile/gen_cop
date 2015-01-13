@@ -8,7 +8,8 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported API
 %%----------------------------------------------------------------------------------------------------------------------
--export([make_instance/1]).
+-export([make_instance/1, make_instance_if_need/1]).
+-export([is_instance/1]).
 -export([get_id/1]).
 -export([init/2, handle_data/3, handle_call/4, handle_cast/3, handle_info/3, terminate/3, code_change/4]).
 
@@ -107,6 +108,14 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Exported Functions
 %%----------------------------------------------------------------------------------------------------------------------
+%% XXX: 互換性維持用関数。あとで削除する　
+-spec make_instance_if_need(spec()) -> uninitialized_handler().
+make_instance_if_need(X) ->
+    case is_instance(X) of
+        true  -> X;
+        false -> make_instance(X)
+    end.
+
 -spec make_instance(spec()) -> uninitialized_handler().
 make_instance({Module, Arg}) ->
     %% TODO: validate
@@ -126,6 +135,10 @@ make_instance({Module, Arg, Options}) ->
             code_change = proplists:get_value(code_change, CallbackOptions, fun Module:code_change/4)
            },
     {Header, Arg}.
+
+-spec is_instance(handler() | term()) -> boolean().
+is_instance({#?HEADER{}, _}) -> true;
+is_instance(_)               -> false.
 
 -spec get_id(handler()) -> id().
 get_id({#?HEADER{id = Id}, _}) -> Id.

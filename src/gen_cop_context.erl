@@ -158,7 +158,7 @@ delegate_info(Info, State, Context0, Options) ->
 handle_call(Request, From, Context = #?CONTEXT{handlers = []}) ->
     stop({unhandled_call, Request, From}, Context);
 handle_call(Request, From, Context = #?CONTEXT{handlers = [Handler | _]}) ->
-    gen_cop_hander:handle_call(Request, From, Handler, Context).
+    gen_cop_handler:handle_call(Request, From, Handler, Context).
 
 -spec handle_cast(term(), context()) -> handler_result().
 handle_cast(Request, Context = #?CONTEXT{handlers = []}) ->

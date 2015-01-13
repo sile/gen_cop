@@ -11,6 +11,7 @@
 -export([start/1]).
 -export([send/2]).
 -export([cast/2]).
+-export([call/3]).
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal API
@@ -74,6 +75,10 @@ send(ServerRef, Data) ->
 -spec cast(gen_cop:otp_ref(), term()) -> ok.
 cast(ServerRef, Request) ->
     gen_server:cast(ServerRef, Request).
+
+-spec call(gen_server:otp_ref(), term(), timeout()) -> term().
+call(ServerRef, Request, Timeout) ->
+    gen_server:call(ServerRef, Request, Timeout).
 
 -define(LOCATION, [{module, ?MODULE}, {line, ?LINE}, {pid, self()}]).
 
@@ -162,13 +167,13 @@ loop(State0, Parent, Debug) ->
         receive
             {tcp, _, Bin} ->
                 flush_send_queue_if_need(handle_recv(Bin, State0));
-            {call, Request, From} -> % XXX:
-                flush_send_queue_if_need(handle_call(Request, From, State0));
             {'$gen_cast', {'$send', Data}} ->
                 Context = gen_cop_context:send(Data, State0#state.context),
                 flush_send_queue(State0#state{context = Context});
             {'$gen_cast', Request} ->
                 flush_send_queue_if_need(handle_cast(Request, State0));
+            {'$gen_call', From, Request} ->
+                flush_send_queue_if_need(handle_call(Request, From, State0));
 
             {tcp_closed, _}           -> {error, {shutdown, tcp_closed}, State0};
             {tcp_error, _, TcpReason} -> {error, {shutdown, {tcp_error, TcpReason}}, State0};
