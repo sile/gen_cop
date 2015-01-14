@@ -24,7 +24,7 @@
 
 -export([which_handlers/1]).
 
--export([add_handler/4, remove_handler/2]).
+%% -export([add_handler/4, remove_handler/2]).
 
 -export([default_on_owner_down/2]).
 
@@ -122,8 +122,8 @@ which_handlers(ServerRef) ->
     gen_cop_server:which_handlers(ServerRef).
 
 % TODO: return: {ok, _} | {error, _, _}
-add_handler(Pos, Mod, State, Context) ->
-    gen_cop_server:add_handler(Pos, Mod, State, Context).
+%% add_handler(Pos, Mod, State, Context) ->
+%%     gen_cop_server:add_handler(Pos, Mod, State, Context).
 
-remove_handler(Reason, Context) ->
-    gen_cop_server:remove_handler(Reason, Context).
+%% remove_handler(Reason, Context) ->
+%%     gen_cop_server:remove_handler(Reason, Context).
