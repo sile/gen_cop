@@ -117,7 +117,7 @@ reply(From, Reply) ->
 get_logger(ServerRef) ->
     call(ServerRef, get_logger).
 
--spec which_handlers(otp_ref()) -> [gen_cop_handler:id()].
+-spec which_handlers(otp_ref()) -> [{gen_cop_handler:id(), module()}].
 which_handlers(ServerRef) ->
     gen_cop_server:which_handlers(ServerRef).
 

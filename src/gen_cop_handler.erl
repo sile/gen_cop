@@ -11,6 +11,7 @@
 -export([make_instance/1, make_instance_if_need/1]).
 -export([is_instance/1]).
 -export([get_id/1]).
+-export([get_module/1]).
 -export([init/2, handle_data/3, handle_call/4, handle_cast/3, handle_info/3, terminate/3, code_change/4]).
 
 -export_type([spec/0]).
@@ -142,6 +143,9 @@ is_instance(_)               -> false.
 
 -spec get_id(handler()) -> id().
 get_id({#?HEADER{id = Id}, _}) -> Id.
+
+-spec get_module(handler()) -> module().
+get_module({#?HEADER{module = Module}, _}) -> Module.
 
 %% TODO: move to gen_cop_context
 -spec init(uninitialized_handler(), context()) -> gen_cop_context:handler_result().

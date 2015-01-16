@@ -250,6 +250,7 @@ handle_post_options(Context0, [{swap, SwapReason, Spec} | Options]) ->
 handle_post_options(Context0, Options) ->
     error(badarg, [Context0, Options]). % TODO: 引数の位置は逆の方が良さそう
 
+%% TODO: preを複数回実行して、順序が正しいかを確認する
 -spec add_handler(position(), gen_cop_handler:spec(), context()) -> {ok, context()} | {error, Reason, context()} when
       Reason :: not_found | {already_present, gen_cop_handler:id()} | term().
 add_handler(Position, Spec, Context0) ->
@@ -257,10 +258,13 @@ add_handler(Position, Spec, Context0) ->
     case handlers_split(gen_cop_handler:get_id(Handler0), Context0#?CONTEXT.handlers ++ Context0#?CONTEXT.done_handlers, []) of  % TODO: refactoring
         {ok, _, _, _} -> {error, {already_present, gen_cop_handler:get_id(Handler0)}, Context0};
         error         ->
-            case gen_cop_handler:init(Handler0, Context0#?CONTEXT{handlers = [Handler0 | Context0#?CONTEXT.handlers]}) of % XXX:
-                {stop, Reason, Context1} -> {error, Reason, Context1};
+            %% XXX: 挿入=> initとしないと、init内でaddやremoveが呼ばれた場合のおかしくなりそう
+            case gen_cop_handler:init(Handler0, Context0#?CONTEXT{handlers = [Handler0], done_handlers = []}) of % XXX:
+                {stop, Reason, _Context1} -> {error, Reason, Context0}; % XXX: Context1を返すべき
                 {ok, Context1}           ->
-                    #?CONTEXT{handlers = [Handler1, Current | Handlers], done_handlers = Dones} = Context1,
+                    %% XXX:非効率
+                    #?CONTEXT{handlers = [Handler1], done_handlers = []} = Context1,
+                    #?CONTEXT{handlers = [Current | Handlers], done_handlers = Dones} = Context0,
                     Context2 = Context1#?CONTEXT{handlers = [Current | Handlers]},
                     case Position of
                         front     -> {ok, Context2#?CONTEXT{done_handlers = Dones ++ [Handler1]}};
@@ -328,9 +332,10 @@ swap_handler(RemoveId, SwapReason, Spec, Context0) ->
         {ok, Context1}            -> add_handler(Position, Spec, Context1)
     end.
 
--spec which_handlers(context()) -> [gen_cop_handler:id()].
+-spec which_handlers(context()) -> [{gen_cop_handler:id(), module()}].
 which_handlers(Context) ->
-    lists:map(fun gen_cop_handler:get_id/1, Context#?CONTEXT.handlers).
+    [{gen_cop_handler:get_id(H), gen_cop_handler:get_module(H)} ||
+        H <- lists:reverse(Context#?CONTEXT.done_handlers, Context#?CONTEXT.handlers)].
 
 -spec get_nearest_position(gen_cop_handler:id(), context()) -> position().
 get_nearest_position(Id, Context) -> % TODO: rename

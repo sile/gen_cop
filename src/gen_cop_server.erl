@@ -81,7 +81,7 @@ cast(ServerRef, Request) ->
 call(ServerRef, Request, Timeout) ->
     gen_server:call(ServerRef, Request, Timeout).
 
--spec which_handlers(gen_cop:otp_ref()) -> [gen_cop_handler:id()].
+-spec which_handlers(gen_cop:otp_ref()) -> [{gen_cop_handler:id(), module()}].
 which_handlers(ServerRef) ->
     call(ServerRef, which_handlers, 5000).
 
