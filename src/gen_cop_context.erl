@@ -359,7 +359,7 @@ handlers_split(Id, [H | Hs], Acc) ->
 %%----------------------------------------------------------------------------------------------------------------------
 %% Internal Functions
 %%----------------------------------------------------------------------------------------------------------------------
--spec handlers_init([gen_cop_hander:uninitialized_handler()], context()) -> handler_result().
+-spec handlers_init([gen_cop_handler:uninitialized_handler()], context()) -> handler_result().
 handlers_init([], Context) ->
     {ok, Context};
 handlers_init([Handler | Rest], Context0) ->

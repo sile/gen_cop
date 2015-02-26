@@ -30,7 +30,8 @@
           decode :: decode_fun()
         }).
 
--opaque codec() :: #?CODEC{}.
+%% -opaque codec() :: #?CODEC{}.
+-type codec() :: #?CODEC{}.
 
 -type context() :: gen_cop_context:context().
 
@@ -78,7 +79,7 @@ encode(Messages, Codec, Context0) ->
         {error, Reason, State, Context1} -> {error, Reason, Codec#?CODEC{state = State}, Context1}
     end.
 
--spec decode(binary(), codec_state(), context()) -> decode_result().
+-spec decode(binary(), codec(), context()) -> decode_result().
 decode(Bin, Codec, Context0) ->
     case (Codec#?CODEC.decode)(Bin, Codec#?CODEC.state, Context0) of
         {ok, Messages, State, Context1}  -> {ok, Messages, Codec#?CODEC{state = State}, Context1};

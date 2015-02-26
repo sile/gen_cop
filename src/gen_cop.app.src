@@ -6,7 +6,8 @@
   {registered, [gen_cop_sup]},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  logi
                  ]},
   {env, []}
  ]}.

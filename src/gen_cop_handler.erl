@@ -20,7 +20,7 @@
 -export_type([spec_opt/0, spec_opts/0]).
 -export_type([handler/0, uninitialized_handler/0, initialized_handler/0]).
 -export_type([header/0]).
--epxort_type([state/0]).
+-export_type([state/0]).
 
 -export_type([init_fun/0]).
 -export_type([handle_data_fun/0]).

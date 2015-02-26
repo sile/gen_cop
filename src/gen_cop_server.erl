@@ -250,6 +250,7 @@ handle_info(Info, State) ->
         {ok, Context}           -> {ok, State#state{context = Context}}
     end.
 
+-spec terminate(term(), #state{}) -> no_return().
 terminate(Reason, State0) ->
     _ = gen_cop_context:terminate(Reason, State0#state.context),
     exit(Reason).
@@ -286,7 +287,7 @@ system_continue(Parent, Debug, State) ->
     loop(State, Parent, Debug).
 
 %% @private
-%%-spec system_terminate(any(), pid(), any(), session()) -> no_return(). % dialyzerの警告抑制のためのspec
+-spec system_terminate(any(), pid(), any(), #state{}) -> no_return(). % dialyzerの警告抑制のためのspec
 system_terminate(Reason, _Parent, _Debug, State) ->
     terminate(Reason, State).
 

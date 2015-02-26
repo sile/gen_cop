@@ -30,9 +30,17 @@
 
 -export_type([on_owner_down/0]).
 
+-export_type([from/0, data/0, info/0, context/0, message/0, request/0]).
 %%----------------------------------------------------------------------------------------------------------------------
 %% Types
 %%----------------------------------------------------------------------------------------------------------------------
+-type from() :: term().
+-type data() :: term().
+-type info() :: term().
+-type context() :: gen_cop_context:context().
+-type message() :: term().
+-type request() :: term().
+
 -type codec()         :: gen_cop_codec:codec().
 -type handler_specs() :: [handler_spec()].
 -type handler_spec()  :: gen_cop_handler:spec().
