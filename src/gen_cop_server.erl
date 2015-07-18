@@ -25,8 +25,10 @@
 -export([system_continue/3, system_terminate/4, system_code_change/4]).
 
 %%----------------------------------------------------------------------------------------------------------------------
-%% Records & Types
+%% Macros & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
+-define(ACTIVE_COUNT, 32).
+
 -record(opt,
         {
           owner         :: undefined | reference(),
@@ -150,7 +152,7 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
             exit(Reason);
         {ok, Context} ->
             _  = SyncFun({ok, self()}),
-            ok = inet:setopts(Socket, [{active, once}]),
+            ok = inet:setopts(Socket, [{active, ?ACTIVE_COUNT}]),
             ok = logi:save_context(proplists:get_value(logger, Options, logi:make_context())), % TODO: 不要な時には保存しない
 
             State =
@@ -190,6 +192,9 @@ loop(State0, Parent, Debug) ->
 
             {tcp_closed, _}           -> {error, {shutdown, tcp_closed}, State0};
             {tcp_error, _, TcpReason} -> {error, {shutdown, {tcp_error, TcpReason}}, State0};
+            {tcp_passive, _}          ->
+                ok = inet:setopts(gen_cop_context:get_socket(State0#state.context), [{active, ?ACTIVE_COUNT}]),
+                {ok, State0};
 
             %% sys releated messages
             {system, _, _} = SystemMessage -> SystemMessage;
@@ -226,9 +231,7 @@ flush_send_queue(State0) ->
 handle_recv(Bin, State0) ->
     case gen_cop_context:recv(Bin, State0#state.context) of
         {stop, Reason, Context} -> {error, Reason, State0#state{context = Context}};
-        {ok, Context}           ->
-            ok = inet:setopts(gen_cop_context:get_socket(Context), [{active, once}]), % TODO: error handling
-            {ok, State0#state{context = Context}}
+        {ok, Context}           -> {ok, State0#state{context = Context}}
     end.
 
 handle_call(Request, From, State) ->
