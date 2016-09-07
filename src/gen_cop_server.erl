@@ -191,8 +191,8 @@ loop(State0, Parent, Debug) ->
             {'$gen_call', From, Request} ->
                 flush_send_queue_if_need(handle_call(Request, From, State0));
 
-            {tcp_closed, _}           -> {error, {shutdown, tcp_closed}, State0};
-            {tcp_error, _, TcpReason} -> {error, {shutdown, {tcp_error, TcpReason}}, State0};
+            {tcp_closed, _}           -> {error, tcp_closed, State0};
+            {tcp_error, _, TcpReason} -> {error, {tcp_error, TcpReason}, State0};
             {tcp_passive, _}          ->
                 ok = inet:setopts(gen_cop_context:get_socket(State0#state.context), [{active, ?ACTIVE_COUNT}]),
                 {ok, State0};
