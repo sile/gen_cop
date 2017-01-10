@@ -33,7 +33,12 @@
 %% -opaque codec() :: #?CODEC{}.
 -type codec() :: #?CODEC{}.
 
--type context() :: gen_cop_context:context().
+%% FIXME:
+%% 本当は以下のように定義したいが、これだとdialyzerと相性が悪く、
+%% メモリを食い潰す and 解析が終わらない、のでその問題が解決するまで`term()`に置き換えておく.
+%%
+%% -type context() :: gen_cop_context:context().
+-type context() :: term().
 
 -type codec_module() :: module().
 -type codec_state() :: term().

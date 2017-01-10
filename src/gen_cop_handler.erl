@@ -91,9 +91,14 @@
 -type terminate_fun()   :: fun ((Reason::term(), state(), context())                    -> handle_result()).
 -type code_change_fun() :: fun ((OldVsn::term(), state(), Extra::term(), context())     -> handle_result()).
 
--type handle_result() :: gen_cop_context:handler_result().
-
--type context() :: gen_cop:context().
+%% FIXME:
+%% 本当は以下のように定義したいが、これだとdialyzerと相性が悪く、
+%% メモリを食い潰す and 解析が終わらない、のでその問題が解決するまで`term()`に置き換えておく.
+%%
+%% -type handle_result() :: gen_cop_context:handler_result().
+%% -type context() :: gen_cop:context().
+-type handle_result() :: term().
+-type context() :: term().
 
 %%----------------------------------------------------------------------------------------------------------------------
 %% Callback API
