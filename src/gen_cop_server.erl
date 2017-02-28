@@ -256,6 +256,7 @@ handle_info(Info, State) ->
 
 -spec terminate(term(), #state{}) -> no_return().
 terminate(Reason, State0) ->
+    _ = flush_send_queue(State0),
     _ = gen_cop_context:terminate(Reason, State0#state.context),
     exit(Reason).
 
