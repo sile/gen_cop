@@ -154,7 +154,7 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
             _  = SyncFun({ok, self()}),
             {ok, [{sndbuf, SndBuf}, {recbuf, RecBuf}]} = inet:getopts(Socket, [sndbuf, recbuf]),
             ok = inet:setopts(Socket, [{active, ?ACTIVE_COUNT}, {buffer, max(SndBuf, RecBuf)}]),
-            ok = logi:save_context(proplists:get_value(logger, Options, logi:make_context())), % TODO: 不要な時には保存しない
+            _ = logi:save_context(proplists:get_value(logger, Options, logi:make_context())), % TODO: 不要な時には保存しない
 
             State =
                 #state{
