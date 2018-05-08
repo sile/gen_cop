@@ -14,7 +14,6 @@
 -export_type([start_err/0]).
 -export_type([ack_fun/0]).
 -export_type([otp_name/0, otp_ref/0]).
--export_type([logi_logger/0]).
 
 -export([reply/2]).
 -export([send/2]).
@@ -56,11 +55,8 @@
                    | {spawn_opt, [term()]} % TODO: more specific typespec
                    | {timeout, timeout()}
                    | {debug, [term()]} % TODO: more specific typespec
-                   | {logger, logi_logger()}.
+                   | {logger, logi:context()}.
 %% TODO: doc
-
--type logi_logger() :: term().
-%% logi:context() in v0.1.12, logi:logger() in v0.5.x
 
 -type start_err() :: {already_started, pid()} | timeout | term().
 
@@ -125,7 +121,7 @@ reply(From, Reply) ->
     ok.
 
 %% TODO: rename: get_default_logger
--spec get_logger(otp_ref()) -> logi_logger().
+-spec get_logger(otp_ref()) -> logi:context().
 get_logger(ServerRef) ->
     call(ServerRef, get_logger).
 
