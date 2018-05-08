@@ -1,4 +1,3 @@
-%% coding: latin-1
 %% @copyright 2014, Takeru Ohta <phjgt308@gmail.com>
 -module(gen_cop_tests).
 

@@ -10,3 +10,4 @@ erl
 *.dump
 .eunit
 .rebar
+_build/
