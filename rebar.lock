@@ -1,4 +1,4 @@
 [{<<"logi">>,
   {git,"git://github.com/sile/logi.git",
-       {ref,"79d66d062acc5e40943278e1439f0fbd77c8f776"}},
+       {ref,"1022fbc238a7d18765fe864a7174958142160ee8"}},
   0}].
