@@ -36,11 +36,21 @@
 %%----------------------------------------------------------------------------------------------------------------------
 %% Macros & Records & Types
 %%----------------------------------------------------------------------------------------------------------------------
+-ifdef('OTP_RELEASE').
+%% The 'OTP_RELEASE' macro introduced at OTP-21,
+%% so we can use it for detecting whether the Erlang compiler supports new try/catch syntax or not.
+-define(CAPTURE_STACKTRACE, :__StackTrace).
+-define(GET_STACKTRACE, __StackTrace).
+-else.
+-define(CAPTURE_STACKTRACE, ).
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-endif.
+
 -define(FUNCALL(Context, Header, FunName, Args),
         try
             (Header#?HEADER.FunName)Args
         catch
-            ExClass:ExReason -> gen_cop_context:raise(ExClass, ExReason, Context)
+            ExClass:ExReason ?CAPTURE_STACKTRACE -> gen_cop_context:raise(ExClass, ExReason, ?GET_STACKTRACE, Context)
         end).
 
 -define(HEADER, ?MODULE).

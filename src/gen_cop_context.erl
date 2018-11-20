@@ -20,7 +20,7 @@
 
 -export([ok/1, ok/2, ok/3]).
 -export([stop/2, stop/3]).
--export([raise/3, raise/4]).
+-export([raise/4]).
 
 -export([delegate_data/2, delegate_data/3, delegate_data/4]).
 -export([delegate_call/3, delegate_call/4, delegate_call/5]).
@@ -193,13 +193,6 @@ set_codec(Codec, Context) ->
 -spec terminate(term(), context()) -> context().
 terminate(Reason, Context) ->
     handlers_terminate(Reason, Context).
-
-%% XXX: tmp
--spec raise(Class, Reason, context()) -> {stop, Reason, context()} when
-      Class :: throw | error | exit,
-      Reason :: term().
-raise(Class, Reason, Context) ->
-    raise(Class, Reason, erlang:get_stacktrace(), Context).
 
 -spec raise(Class, Reason, StackTrace, context()) -> {stop, Reason, context()} when
       Class :: throw | error | exit,
