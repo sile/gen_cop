@@ -128,8 +128,8 @@ gen_cop
   - 名前つきで起動する際の指定．
   - 指定しなかった場合は名前なし．
 * `ack_fun`
-  - **要加筆**
-  - 省略された場合は `gen_tcp:controlling_process(Socket, Pid)` によって起動処理と並行してソケットとプロセスの関連づけを行なう処理が走る．
+  - `gen_cop` サーバプロセスの初期化時にそのプロセスで呼び出される，サーバプロセスをソケットのcontrolling processにするための処理の指定．
+  - 省略された場合，`gen_cop:start/4` を呼び出した側のプロセスで `gen_tcp:controlling_process(Socket, ServerPid)` が評価され（ただし `ServerPid` は立ち上がったばかりの `gen_cop` サーバプロセスのPID），起動処理と並行してソケットとプロセスの関連づけを行なう処理が走る．
 * `async`
   - 起動処理を非同期にするか否か．
   - `true` を指定すると，`gen_cop` プロセスが起動した際の文脈の初期化処理が完了するのを待たずに戻り値が返る．
@@ -150,10 +150,12 @@ gen_cop
   - `{link, true}` を指定している場合は，ここに `link` は指定しなくてよい．
   - 省略した場合は（`link` の有無のみ別として）`[]`．
 * `debug`
-  - **要加筆**
-  - `sys:handle_system_msg/6` の第5引数として使われている．
+  - `gen_cop` サーバプロセスをOTP準拠のプロセスとするために要請される **debug structure** を作成する過程で `sys:debug_options/1` に与えるオプション．
+    * 参考： [Erlang -- sys and proc\_lib](https://erlang.org/doc/design_principles/spec_proc.html)
+  - 省略時は `[]` が与えられた場合と等価．
 * `logger`
-  - **要加筆**
+  - `logi` モジュールのlogger instanceの指定．
+  - 省略された場合は `logi:make_context/0` により新たにつくられる．
 
 
 #### `otp_ref()`
