@@ -8,19 +8,21 @@
 %%----------------------------------------------------------------------------------------------------------------------
 -define(assertDown(Pid, ExpectedReason),
         (fun () ->
-                 __Monitor = monitor(process, Pid),
+                 GEN_COP_TEST__Monitor = monitor(process, Pid),
                  receive
-                     {'DOWN', __Monitor, _, _, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
+                     {'DOWN', GEN_COP_TEST__Monitor, _, _, GEN_COP_TEST__Reason} ->
+                         ?assertMatch(ExpectedReason, GEN_COP_TEST__Reason)
                  after 500 -> ?assert(timeout)
                  end
          end)()).
 
 -define(assertDown(Pid, ExitReason, ExpectedReason),
         (fun () ->
-                 __Monitor = monitor(process, Pid),
+                 GEN_COP_TEST__Monitor = monitor(process, Pid),
                  _ = exit(Pid, ExitReason),
                  receive
-                     {'DOWN', __Monitor, _, _, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
+                     {'DOWN', GEN_COP_TEST__Monitor, _, _, GEN_COP_TEST__Reason} ->
+                         ?assertMatch(ExpectedReason, GEN_COP_TEST__Reason)
                  after 500 -> ?assert(timeout)
                  end
          end)()).
@@ -28,7 +30,8 @@
 -define(assertAbort(Pid, ExpectedReason),
         (fun () ->
                  receive
-                     {'EXIT', Pid, __Reason} -> ?assertMatch(ExpectedReason, __Reason)
+                     {'EXIT', Pid, GEN_COP_TEST__Reason} ->
+                         ?assertMatch(ExpectedReason, GEN_COP_TEST__Reason)
                  after 500 -> ?assert(timeout)
                  end
          end)()).
