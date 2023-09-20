@@ -1,8 +1,7 @@
 gen_cop
 =======
 
-[![Build Status](https://travis-ci.org/sile/gen_cop.svg?branch=master)](https://travis-ci.org/sile/gen_cop)
-[![Code Coverage](https://codecov.io/gh/sile/gen_cop/branch/master/graph/badge.svg)](https://codecov.io/gh/sile/gen_cop/branch/master)
+[![Build Status](https://github.com/sile/gen_cop/workflows/build/badge.svg)](https://github.com/sile/gen_cop)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 概要
