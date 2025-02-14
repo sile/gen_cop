@@ -167,8 +167,12 @@ init(Parent, _, AckFun, SyncFun, {Socket, Codec, Handlers, Options}) ->
                              on_owner_down = proplists:get_value(on_owner_down, Options, fun gen_cop:default_on_owner_down/2)
                             }
                   },
-            loop(element(2, flush_send_queue(State)),  % XXX
-                 Parent, sys:debug_options(proplists:get_value(debug, Options, [])))
+            case flush_send_queue(State) of
+                {ok, State1} ->
+                    loop(State1, Parent, sys:debug_options(proplists:get_value(debug, Options, [])));
+                {error, Reason, State1} ->
+                    terminate(Reason, State1)
+            end
     end.
 
 loop(State0, Parent, Debug) ->
